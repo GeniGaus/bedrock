@@ -11,6 +11,7 @@
     var _nav = document.getElementById('moz-global-nav');
     var _page = document.getElementsByTagName('html')[0];
     var _navLinks;
+    var _drawerTimeout;
 
     // feature detects
     var _supportsBoundingClientRect = 'getBoundingClientRect' in document.createElement('div');
@@ -57,37 +58,62 @@
                    'classList' in document.createElement('div');
         },
 
-        // Toggle the drawer state.
-        toggleDrawer: function() {
-            var action;
+        /**
+         * Toggle the drawer state
+         * @param {String} id - optional accordion id to expand on open.
+         */
+        toggleDrawer: function(accordionId) {
 
             _page.classList.toggle('moz-nav-open');
 
-            // If the drawer opens, shift focus to the close button.
             if (_page.classList.contains('moz-nav-open')) {
-                action = 'open';
-                _closeButton.focus();
-
-                document.addEventListener('keydown', mozGlobalNav.handleEscKey, false);
-                _page.addEventListener('focusin', mozGlobalNav.handleDrawerFocusOut, false);
+                mozGlobalNav.onDrawerOpen(accordionId);
+            } else {
+                mozGlobalNav.onDrawerClose();
             }
-            // If the drawer closes, clear previously open & selected items and then shift
-            // focus back to the menu button
-            else {
-                action = 'close';
 
-                mozGlobalNav.clearSelectedNavLink();
-                mozGlobalNav.closeSecondaryMenuItems();
+            // Add a little delay before toggling the accordion
+            // for a smoother transition when the drawer moves.
+            clearTimeout(_drawerTimeout);
+            _drawerTimeout = setTimeout(function() {
+                if (_page.classList.contains('moz-nav-open')) {
+                    if (accordionId) {
+                        mozGlobalNav.toggleDrawerMenu(accordionId);
+                    }
+                } else {
+                    mozGlobalNav.closeSecondaryMenuItems();
+                }
+            }, 320);
+        },
 
-                document.removeEventListener('keydown', mozGlobalNav.handleEscKey, false);
-                _page.removeEventListener('focusin', mozGlobalNav.handleDrawerFocusOut, false);
+        // handle menu button & mask click events to toggle drawer
+        handleToggleDrawerEvent: function() {
+            mozGlobalNav.toggleDrawer();
+        },
 
-                _menuButton.focus();
-            }
+        onDrawerOpen: function() {
+            document.addEventListener('keydown', mozGlobalNav.handleEscKey, false);
+            _page.addEventListener('focusin', mozGlobalNav.handleDrawerFocusOut, false);
 
             window.dataLayer.push({
                 'event': 'global-nav',
-                'interaction': 'menu-' + action
+                'interaction': 'menu-open'
+            });
+        },
+
+        onDrawerClose: function() {
+            document.removeEventListener('keydown', mozGlobalNav.handleEscKey, false);
+            _page.removeEventListener('focusin', mozGlobalNav.handleDrawerFocusOut, false);
+
+            // clear selected link in horizontal primary navigation
+            mozGlobalNav.clearSelectedNavLink();
+
+            // return focus to the menu button.
+            _menuButton.focus();
+
+            window.dataLayer.push({
+                'event': 'global-nav',
+                'interaction': 'menu-close'
             });
         },
 
@@ -230,12 +256,7 @@
 
             if (id) {
                 mozGlobalNav.selectNavLink(id);
-
-                if (!_page.classList.contains('moz-nav-open')) {
-                    mozGlobalNav.toggleDrawer();
-                }
-
-                mozGlobalNav.toggleDrawerMenu(id);
+                mozGlobalNav.toggleDrawer(id);
             }
         },
 
@@ -251,11 +272,11 @@
                 _navLinks[j].addEventListener('click', mozGlobalNav.handleNavLinkClick, false);
             }
 
-            _menuButton.addEventListener('click', mozGlobalNav.toggleDrawer, false);
-            _closeButton.addEventListener('click', mozGlobalNav.toggleDrawer, false);
+            _menuButton.addEventListener('click', mozGlobalNav.handleToggleDrawerEvent, false);
+            _closeButton.addEventListener('click', mozGlobalNav.handleToggleDrawerEvent, false);
 
             var mask = document.getElementById('moz-global-nav-page-mask');
-            mask.addEventListener('click', mozGlobalNav.toggleDrawer, false);
+            mask.addEventListener('click', mozGlobalNav.handleToggleDrawerEvent, false);
         },
 
         /**
